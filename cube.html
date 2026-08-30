@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#090b0a" />
+    <title>Depth//Lab – Rotating Cube</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #090b0a;
+        --panel: #111512;
+        --panel-2: #181d19;
+        --line: #303831;
+        --ink: #f1f8ef;
+        --muted: #89958b;
+        --acid: #b9ff56;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        padding: 22px;
+        background:
+          radial-gradient(circle at 50% -10%, rgba(185, 255, 86, 0.1), transparent 38%),
+          linear-gradient(135deg, transparent 0 49%, rgba(255, 255, 255, 0.016) 50% 51%, transparent 52%) 0 0 / 18px 18px,
+          var(--bg);
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button,
+      .game-link {
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: 0;
+        background: var(--panel-2);
+        color: var(--ink);
+        cursor: pointer;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      button:hover,
+      .game-link:hover {
+        border-color: var(--acid);
+      }
+
+      button:focus-visible,
+      .game-link:focus-visible,
+      input:focus-visible {
+        outline: 2px solid var(--acid);
+        outline-offset: 2px;
+      }
+
+      .shell {
+        width: min(1080px, 100%);
+        margin: 0 auto;
+        border: 1px solid var(--line);
+        background: rgba(13, 16, 14, 0.95);
+        box-shadow: 0 30px 100px rgba(0, 0, 0, 0.48);
+      }
+
+      nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
+        font-weight: 850;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .brand::before {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--acid);
+        box-shadow: 0 0 14px var(--acid);
+        content: "";
+      }
+
+      .game-link {
+        display: inline-grid;
+        min-height: 34px;
+        place-items: center;
+        padding: 0 12px;
+        color: var(--muted);
+        font-size: 10px;
+        text-decoration: none;
+      }
+
+      main {
+        padding: clamp(18px, 4vw, 38px);
+      }
+
+      .intro {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 360px);
+        align-items: end;
+        gap: 26px;
+        margin-bottom: 22px;
+      }
+
+      .eyebrow {
+        margin: 0 0 9px;
+        color: var(--acid);
+        font: 750 10px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(36px, 7vw, 78px);
+        font-weight: 780;
+        letter-spacing: -0.065em;
+        line-height: 0.88;
+      }
+
+      .intro-copy {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .intro-copy strong {
+        color: var(--ink);
+      }
+
+      .screen {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid #485148;
+        background: #8f9982;
+        box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.26);
+      }
+
+      .screen::after {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        pointer-events: none;
+        background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.055) 0 1px, transparent 1px 3px);
+        mix-blend-mode: multiply;
+        content: "";
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+        image-rendering: pixelated;
+      }
+
+      .focus-guide {
+        position: absolute;
+        top: 18px;
+        left: 50%;
+        z-index: 3;
+        display: flex;
+        width: var(--guide-width, 92px);
+        justify-content: space-between;
+        transform: translateX(-50%);
+        pointer-events: none;
+      }
+
+      .focus-guide i {
+        width: 8px;
+        height: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.82);
+        border-radius: 50%;
+        background: rgba(7, 10, 8, 0.75);
+        box-shadow: 0 1px 4px #000;
+      }
+
+      .live {
+        position: absolute;
+        right: 12px;
+        bottom: 11px;
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 8px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(8, 12, 9, 0.68);
+        color: rgba(255, 255, 255, 0.74);
+        font: 750 9px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .live::before {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--acid);
+        box-shadow: 0 0 8px var(--acid);
+        content: "";
+      }
+
+      .live.paused::before {
+        background: var(--muted);
+        box-shadow: none;
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: 140px 1fr 1fr;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .control {
+        min-width: 0;
+        border: 1px solid var(--line);
+        background: var(--panel);
+        padding: 11px 13px;
+      }
+
+      .control label {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 9px;
+        color: var(--muted);
+        font: 750 9px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .control output {
+        color: var(--acid);
+      }
+
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--acid);
+      }
+
+      .hint {
+        margin: 13px 0 0;
+        color: var(--muted);
+        font-size: 11px;
+        text-align: center;
+      }
+
+      @media (max-width: 700px) {
+        body {
+          padding: 0;
+        }
+
+        .shell {
+          min-height: 100vh;
+          border: 0;
+        }
+
+        nav {
+          position: sticky;
+          top: 0;
+          z-index: 5;
+          background: rgba(9, 12, 10, 0.94);
+          backdrop-filter: blur(12px);
+        }
+
+        main {
+          padding: 18px 13px 28px;
+        }
+
+        .intro {
+          grid-template-columns: 1fr;
+          gap: 12px;
+          margin-bottom: 16px;
+        }
+
+        h1 {
+          font-size: clamp(42px, 15vw, 64px);
+        }
+
+        .intro-copy {
+          font-size: 12px;
+        }
+
+        .controls {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        #pauseButton {
+          grid-column: 1 / -1;
+        }
+
+        .hint {
+          line-height: 1.45;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .live::before {
+          box-shadow: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <section class="shell">
+      <nav>
+        <div class="brand">Depth//Lab 01</div>
+        <a class="game-link" href="./">Zum Spiel</a>
+      </nav>
+
+      <main>
+        <section class="intro">
+          <div>
+            <p class="eyebrow">Animated SIRDS geometry</p>
+            <h1>Rotating<br />Cube.</h1>
+          </div>
+          <p class="intro-copy">
+            Entspanne den Blick, bis aus den <strong>zwei Punkten drei</strong> werden. Der Würfel dreht sich nur in der Tiefe – nicht als sichtbare Kontur.
+          </p>
+        </section>
+
+        <div class="screen" id="screen">
+          <canvas id="stereogram" width="900" height="540" aria-label="Animiertes Magic-Eye-Stereogramm eines rotierenden Würfels"></canvas>
+          <div class="focus-guide" id="focusGuide" aria-hidden="true"><i></i><i></i></div>
+          <div class="live" id="liveStatus">Geometry live</div>
+        </div>
+
+        <section class="controls" aria-label="Experimentparameter">
+          <button id="pauseButton" type="button">Pause</button>
+          <div class="control">
+            <label for="speed">Rotation <output id="speedValue">0.55×</output></label>
+            <input id="speed" type="range" min="0.15" max="1.2" step="0.05" value="0.55" />
+          </div>
+          <div class="control">
+            <label for="depth">Depth <output id="depthValue">1.15×</output></label>
+            <input id="depth" type="range" min="0.65" max="1.6" step="0.05" value="1.15" />
+          </div>
+        </section>
+
+        <p class="hint">Tipp: Erst die Punkte fusionieren, dann den Regler langsam bewegen. Zu viel Tiefe kann die Fusion lösen.</p>
+      </main>
+    </section>
+
+    <script>
+      (() => {
+        const canvas = document.querySelector("#stereogram");
+        const context = canvas.getContext("2d", { alpha: false });
+        const screen = document.querySelector("#screen");
+        const focusGuide = document.querySelector("#focusGuide");
+        const liveStatus = document.querySelector("#liveStatus");
+        const pauseButton = document.querySelector("#pauseButton");
+        const speedInput = document.querySelector("#speed");
+        const depthInput = document.querySelector("#depth");
+        const speedValue = document.querySelector("#speedValue");
+        const depthValue = document.querySelector("#depthValue");
+
+        const vertices = [
+          [-1, -1, -1],
+          [1, -1, -1],
+          [1, 1, -1],
+          [-1, 1, -1],
+          [-1, -1, 1],
+          [1, -1, 1],
+          [1, 1, 1],
+          [-1, 1, 1],
+        ];
+        const faces = [
+          [0, 3, 2, 1],
+          [4, 5, 6, 7],
+          [0, 4, 7, 3],
+          [1, 2, 6, 5],
+          [0, 1, 5, 4],
+          [3, 7, 6, 2],
+        ];
+        const palette = [
+          [16, 26, 19],
+          [34, 48, 37],
+          [58, 74, 57],
+          [88, 105, 79],
+          [121, 137, 98],
+          [157, 169, 119],
+          [191, 199, 142],
+          [218, 222, 164],
+        ];
+
+        let width = 900;
+        let height = 540;
+        let separation = 96;
+        let depthShift = 13;
+        let depthCanvas = document.createElement("canvas");
+        let depthContext = depthCanvas.getContext("2d");
+        let depthData = null;
+        let paused = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        let speed = Number(speedInput.value);
+        let depthStrength = Number(depthInput.value);
+        let lastFrame = 0;
+        let animationFrame = 0;
+        let resizeTimer = 0;
+
+        function resize() {
+          width = Math.max(320, Math.floor(screen.clientWidth));
+          height = Math.max(300, Math.round(width * 0.6));
+          separation = Math.max(70, Math.round(width * 0.11));
+          depthShift = Math.max(8, Math.round(separation * 0.14));
+          canvas.width = width;
+          canvas.height = height;
+          depthCanvas.width = width;
+          depthCanvas.height = height;
+          depthContext = depthCanvas.getContext("2d");
+          focusGuide.style.setProperty("--guide-width", `${separation}px`);
+          makeStereogram(performance.now());
+        }
+
+        function rotateVertex(vertex, angleX, angleY) {
+          const [x, y, z] = vertex;
+          const cosX = Math.cos(angleX);
+          const sinX = Math.sin(angleX);
+          const rotatedY = y * cosX - z * sinX;
+          const rotatedZ = y * sinX + z * cosX;
+          const cosY = Math.cos(angleY);
+          const sinY = Math.sin(angleY);
+          return {
+            x: x * cosY + rotatedZ * sinY,
+            y: rotatedY,
+            z: -x * sinY + rotatedZ * cosY,
+          };
+        }
+
+        function faceNormal(a, b, c) {
+          const first = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
+          const second = { x: c.x - a.x, y: c.y - a.y, z: c.z - a.z };
+          return {
+            z: first.x * second.y - first.y * second.x,
+          };
+        }
+
+        function project(vertex) {
+          const perspective = 3.8 / (3.8 - vertex.z);
+          const scale = Math.min(width, height) * 0.245;
+          return {
+            x: width / 2 + vertex.x * scale * perspective,
+            y: height * 0.54 - vertex.y * scale * perspective,
+            z: vertex.z,
+          };
+        }
+
+        function makeCubeDepth(now) {
+          const seconds = now / 1000;
+          const angleY = seconds * speed;
+          const angleX = 0.52 + Math.sin(seconds * speed * 0.72) * 0.3;
+          const transformed = vertices.map((vertex) => rotateVertex(vertex, angleX, angleY));
+          const projected = transformed.map(project);
+          const visibleFaces = faces
+            .map((face) => {
+              const points = face.map((index) => projected[index]);
+              const normal = faceNormal(
+                transformed[face[0]],
+                transformed[face[1]],
+                transformed[face[2]],
+              );
+              const averageZ = points.reduce((sum, point) => sum + point.z, 0) / points.length;
+              return { points, normal, averageZ };
+            })
+            .filter((face) => face.normal.z > 0)
+            .sort((first, second) => first.averageZ - second.averageZ);
+
+          depthContext.fillStyle = "black";
+          depthContext.fillRect(0, 0, width, height);
+          depthContext.lineJoin = "round";
+
+          for (const face of visibleFaces) {
+            const normalizedDepth = Math.max(0, Math.min(1, (face.averageZ + 1.5) / 3));
+            const shade = Math.round(90 + normalizedDepth * 145);
+            depthContext.fillStyle = `rgb(${shade}, ${shade}, ${shade})`;
+            depthContext.strokeStyle = "white";
+            depthContext.lineWidth = Math.max(4, width * 0.008);
+            depthContext.beginPath();
+            depthContext.moveTo(face.points[0].x, face.points[0].y);
+            for (let index = 1; index < face.points.length; index += 1) {
+              depthContext.lineTo(face.points[index].x, face.points[index].y);
+            }
+            depthContext.closePath();
+            depthContext.fill();
+            depthContext.stroke();
+          }
+
+          depthData = depthContext.getImageData(0, 0, width, height).data;
+        }
+
+        function makeStereogram(now) {
+          makeCubeDepth(now);
+          const image = context.createImageData(width, height);
+          const pixels = image.data;
+
+          for (let y = 0; y < height; y += 1) {
+            for (let x = 0; x < width; x += 1) {
+              const index = (y * width + x) * 4;
+              if (x < separation) {
+                const color = palette[Math.floor(Math.random() * palette.length)];
+                const variation = Math.floor(Math.random() * 14) - 7;
+                pixels[index] = color[0] + variation;
+                pixels[index + 1] = color[1] + variation;
+                pixels[index + 2] = color[2] + variation;
+              } else {
+                const depth = depthData[index] / 255;
+                const localShift = Math.round(depthShift * depth * depthStrength);
+                const sourceX = x - separation + localShift;
+                const sourceIndex = (y * width + sourceX) * 4;
+                pixels[index] = pixels[sourceIndex];
+                pixels[index + 1] = pixels[sourceIndex + 1];
+                pixels[index + 2] = pixels[sourceIndex + 2];
+              }
+              pixels[index + 3] = 255;
+            }
+          }
+
+          context.putImageData(image, 0, 0);
+        }
+
+        function render(now, force = false) {
+          if ((force || (!paused && now - lastFrame >= 90)) && width > 0) {
+            makeStereogram(now);
+            lastFrame = now;
+          }
+          animationFrame = requestAnimationFrame(render);
+        }
+
+        function updatePauseState() {
+          pauseButton.textContent = paused ? "Animation starten" : "Pause";
+          liveStatus.textContent = paused ? "Geometry paused" : "Geometry live";
+          liveStatus.classList.toggle("paused", paused);
+          if (!paused) lastFrame = 0;
+        }
+
+        pauseButton.addEventListener("click", () => {
+          paused = !paused;
+          updatePauseState();
+          if (paused) makeStereogram(performance.now());
+        });
+
+        speedInput.addEventListener("input", () => {
+          speed = Number(speedInput.value);
+          speedValue.textContent = `${speed.toFixed(2)}×`;
+          if (paused) makeStereogram(performance.now());
+        });
+
+        depthInput.addEventListener("input", () => {
+          depthStrength = Number(depthInput.value);
+          depthValue.textContent = `${depthStrength.toFixed(2)}×`;
+          if (paused) makeStereogram(performance.now());
+        });
+
+        const resizeObserver = new ResizeObserver(() => {
+          clearTimeout(resizeTimer);
+          resizeTimer = window.setTimeout(resize, 100);
+        });
+        resizeObserver.observe(screen);
+
+        updatePauseState();
+        resize();
+        cancelAnimationFrame(animationFrame);
+        animationFrame = requestAnimationFrame(render);
+      })();
+    </script>
+  </body>
+</html>
