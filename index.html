@@ -1147,6 +1147,11 @@
           updateTreeDepth(performance.now());
           const image = ctx.createImageData(width, height);
           const pixels = image.data;
+          const same = new Int32Array(width);
+          const rowDepth = new Float32Array(width);
+          const effectiveShift = depthShift * depthAmount;
+          const eyeSeparation = separation * 2;
+          const depthField = (2 * effectiveShift) / (separation + effectiveShift);
 
           for (let y = 0; y < height; y += 1) {
             for (let x = 0; x < width; x += 1) {
@@ -1154,9 +1159,48 @@
               const codeDepth = depthMap[pixelIndex] / 255;
               const treeDepth = stereoState.treeLayer.depthMap[pixelIndex] / 255;
               const sceneryDepth = Math.max(treeDepth, automataDepthAt(x, y)) * 0.55;
-              const depth = codeDepth > 0.08 ? 0.72 + codeDepth * 0.28 : sceneryDepth;
+              rowDepth[x] = codeDepth > 0.08 ? 0.72 + codeDepth * 0.28 : sceneryDepth;
+              same[x] = x;
+            }
 
-              if (x < separation) {
+            for (let x = 0; x < width; x += 1) {
+              const depth = rowDepth[x];
+              const stereoSeparation = Math.round(
+                ((1 - depthField * depth) * eyeSeparation) / (2 - depthField * depth),
+              );
+              let left = x - Math.floor((stereoSeparation + (stereoSeparation & y & 1)) / 2);
+              let right = left + stereoSeparation;
+
+              if (left < 0 || right >= width) continue;
+
+              let visible = true;
+              let offset = 1;
+              let rayDepth;
+              do {
+                rayDepth =
+                  depth + (2 * (2 - depthField * depth) * offset) / (depthField * eyeSeparation);
+                visible = rowDepth[x - offset] < rayDepth && rowDepth[x + offset] < rayDepth;
+                offset += 1;
+              } while (visible && rayDepth < 1);
+
+              if (!visible) continue;
+
+              let linked = same[left];
+              while (linked !== left && linked !== right) {
+                if (linked < right) {
+                  left = linked;
+                } else {
+                  left = right;
+                  right = linked;
+                }
+                linked = same[left];
+              }
+              same[left] = right;
+            }
+
+            for (let x = width - 1; x >= 0; x -= 1) {
+              const pixelIndex = (y * width + x) * 4;
+              if (same[x] === x) {
                 const grain = Math.floor(Math.random() * palette.length);
                 const color = palette[grain];
                 const variation = Math.floor(Math.random() * 18) - 9;
@@ -1164,9 +1208,7 @@
                 pixels[pixelIndex + 1] = color[1] + variation;
                 pixels[pixelIndex + 2] = color[2] + variation;
               } else {
-                const localShift = Math.round(depthShift * depth * depthAmount);
-                const sourceX = x - separation + localShift;
-                const sourceIndex = (y * width + sourceX) * 4;
+                const sourceIndex = (y * width + same[x]) * 4;
                 pixels[pixelIndex] = pixels[sourceIndex];
                 pixels[pixelIndex + 1] = pixels[sourceIndex + 1];
                 pixels[pixelIndex + 2] = pixels[sourceIndex + 2];
