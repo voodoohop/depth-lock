@@ -1145,7 +1145,7 @@
             displayWidth = Math.round(displayHeight * (config.width / config.height));
           }
 
-          return { viewportWidth, viewportHeight, displayWidth, displayHeight };
+          return { viewportHeight, displayWidth, displayHeight };
         }
 
         function getEncodingParameters(displayWidth, config) {
@@ -1189,6 +1189,7 @@
 
           stereoState = {
             code,
+            config,
             width,
             height,
             separation: 0,
@@ -1200,8 +1201,10 @@
           updateStereogramLayout(config);
         }
 
-        function generateStereogram(code, depthAmount = 1) {
-          if (!stereoState || stereoState.code !== code) prepareStereogram(code, stereogramConfig);
+        function generateStereogram(code, depthAmount = 1, config = stereogramConfig) {
+          if (!stereoState || stereoState.code !== code || stereoState.config !== config) {
+            prepareStereogram(code, config);
+          }
 
           const { width, height, separation, depthShift, depthMap } = stereoState;
           updateTreeDepth(performance.now());
