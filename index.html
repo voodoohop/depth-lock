@@ -847,7 +847,26 @@
           [96, 113, 84],
           [45, 62, 48],
         ];
-        const stereogramAspect = 840 / 460;
+        const stereogramConfig = {
+          width: 840,
+          height: 460,
+          guideY: 42,
+          glyph: {
+            topInset: 0.08,
+            bottomInset: 0.14,
+            height: 0.82,
+            singleWidth: 0.64,
+            multipleWidth: 0.84,
+          },
+          encoding: {
+            minimumDisplaySeparation: 88,
+            narrowMaximumDisplaySeparation: 120,
+            wideMaximumDisplaySeparation: 150,
+            wideBreakpoint: 760,
+            displayWidthRatio: 0.16,
+            maximumDisplayWidthRatio: 0.45,
+          },
+        };
         const treeProgram = makeTreeProgram(6);
 
         let level = 1;
@@ -921,30 +940,44 @@
           choiceGrid.replaceChildren(...buttons);
         }
 
-        function makeDepthMap(width, height, code) {
+        function measureGlyph(context, code, fontSize) {
+          const metrics = context.measureText(code);
+          return {
+            width: metrics.width,
+            ascent: metrics.actualBoundingBoxAscent || fontSize * 0.75,
+            descent: metrics.actualBoundingBoxDescent || fontSize * 0.2,
+          };
+        }
+
+        function makeDepthMap(code, config) {
+          const { width, height, glyph } = config;
           const depthCanvas = document.createElement("canvas");
           depthCanvas.width = width;
           depthCanvas.height = height;
           const depthContext = depthCanvas.getContext("2d");
 
-          const topSafeArea = Math.round(height * 0.08);
-          const maximumTextWidth = width * (code.length === 1 ? 0.64 : 0.84);
-          let fontSize = Math.floor(height * 0.82);
+          const topInset = height * glyph.topInset;
+          const bottomInset = height * glyph.bottomInset;
+          const availableHeight = height - topInset - bottomInset;
+          const maximumTextHeight = availableHeight * glyph.height;
+          const maximumTextWidth = width * (code.length === 1 ? glyph.singleWidth : glyph.multipleWidth);
+          let fontSize = Math.floor(availableHeight);
           depthContext.font = `900 ${fontSize}px Arial Black, Arial, sans-serif`;
-          const measuredWidth = depthContext.measureText(code).width;
-          if (measuredWidth > maximumTextWidth) {
-            fontSize = Math.floor(fontSize * (maximumTextWidth / measuredWidth));
-          }
+          let metrics = measureGlyph(depthContext, code, fontSize);
+          const fitScale = Math.min(maximumTextWidth / metrics.width, maximumTextHeight / (metrics.ascent + metrics.descent));
+          fontSize = Math.floor(fontSize * fitScale);
 
           depthContext.fillStyle = "black";
           depthContext.fillRect(0, 0, width, height);
           depthContext.font = `900 ${fontSize}px Arial Black, Arial, sans-serif`;
+          metrics = measureGlyph(depthContext, code, fontSize);
           depthContext.textAlign = "center";
-          depthContext.textBaseline = "middle";
+          depthContext.textBaseline = "alphabetic";
           depthContext.lineJoin = "round";
           depthContext.strokeStyle = "#777";
           depthContext.lineWidth = Math.max(4, fontSize * 0.075);
-          const textY = topSafeArea + (height - topSafeArea) / 2 + fontSize * 0.03;
+          const measuredTextHeight = metrics.ascent + metrics.descent;
+          const textY = topInset + (availableHeight - measuredTextHeight) / 2 + metrics.ascent;
           depthContext.strokeText(code, width / 2, textY);
           depthContext.fillStyle = "white";
           depthContext.fillText(code, width / 2, textY);
@@ -1101,69 +1134,74 @@
           return 0;
         }
 
-        function getStereogramDisplaySize() {
+        function getStereogramDisplaySize(config) {
           const viewportWidth = Math.max(1, Math.floor(screenWrap.clientWidth));
           const viewportHeight = Math.max(1, Math.floor(screenWrap.clientHeight));
           let displayWidth = viewportWidth;
-          let displayHeight = Math.round(displayWidth / stereogramAspect);
+          let displayHeight = Math.round(displayWidth / (config.width / config.height));
 
           if (displayHeight > viewportHeight) {
             displayHeight = viewportHeight;
-            displayWidth = Math.round(displayHeight * stereogramAspect);
+            displayWidth = Math.round(displayHeight * (config.width / config.height));
           }
 
           return { viewportWidth, viewportHeight, displayWidth, displayHeight };
         }
 
-        function prepareStereogram(code) {
-          const { viewportWidth, viewportHeight, displayWidth, displayHeight } = getStereogramDisplaySize();
-          const renderScale = Math.min(1, 1100 / displayWidth, 760 / displayHeight);
-          const width = Math.round(displayWidth * renderScale);
-          const height = Math.round(displayHeight * renderScale);
-          const minimumSeparation = displayWidth < 600 ? 88 : 100;
-          const maximumSeparation = displayWidth >= 760 ? 150 : 120;
-          const guideSeparation = Math.max(
-            minimumSeparation,
-            Math.min(maximumSeparation, Math.round(displayWidth * 0.16)),
+        function getEncodingParameters(displayWidth, config) {
+          const { encoding } = config;
+          const maximumDisplaySeparation =
+            displayWidth >= encoding.wideBreakpoint
+              ? encoding.wideMaximumDisplaySeparation
+              : encoding.narrowMaximumDisplaySeparation;
+          const desiredDisplaySeparation = Math.max(
+            encoding.minimumDisplaySeparation,
+            Math.min(maximumDisplaySeparation, Math.round(displayWidth * encoding.displayWidthRatio)),
           );
-          const separation = Math.round(guideSeparation * renderScale);
+          const displaySeparation = Math.min(
+            desiredDisplaySeparation,
+            Math.round(displayWidth * encoding.maximumDisplayWidthRatio),
+          );
+          const displayScale = displayWidth / config.width;
+          const separation = Math.round(displaySeparation / displayScale);
           const depthShift = Math.max(8, Math.round(separation * Math.max(0.11, 0.18 - level * 0.004)));
+          return { displayScale, displaySeparation, separation, depthShift };
+        }
 
-          canvas.width = width;
-          canvas.height = height;
+        function updateStereogramLayout(config) {
+          const { viewportHeight, displayWidth, displayHeight } = getStereogramDisplaySize(config);
+          const encoding = getEncodingParameters(displayWidth, config);
           canvas.style.width = `${displayWidth}px`;
           canvas.style.height = `${displayHeight}px`;
-          focusGuide.style.setProperty("--guide-width", `${guideSeparation}px`);
-          focusGuide.style.top = `${Math.round((viewportHeight - displayHeight) / 2) + 42}px`;
+          focusGuide.style.setProperty("--guide-width", `${encoding.displaySeparation}px`);
+          focusGuide.style.top = `${Math.round((viewportHeight - displayHeight) / 2 + config.guideY * encoding.displayScale)}px`;
+
+          if (stereoState) {
+            stereoState.separation = encoding.separation;
+            stereoState.depthShift = encoding.depthShift;
+          }
+        }
+
+        function prepareStereogram(code, config) {
+          const { width, height } = config;
+          canvas.width = width;
+          canvas.height = height;
 
           stereoState = {
             code,
-            viewportWidth,
-            viewportHeight,
-            displayWidth,
-            displayHeight,
             width,
             height,
-            separation,
-            depthShift,
-            depthMap: makeDepthMap(width, height, code),
+            separation: 0,
+            depthShift: 0,
+            depthMap: makeDepthMap(code, config),
             automata: makeAutomata(width, height),
             treeLayer: makeTreeLayer(width, height),
           };
+          updateStereogramLayout(config);
         }
 
         function generateStereogram(code, depthAmount = 1) {
-          const { viewportWidth, viewportHeight, displayWidth, displayHeight } = getStereogramDisplaySize();
-          if (
-            !stereoState ||
-            stereoState.code !== code ||
-            stereoState.viewportWidth !== viewportWidth ||
-            stereoState.viewportHeight !== viewportHeight ||
-            stereoState.displayWidth !== displayWidth ||
-            stereoState.displayHeight !== displayHeight
-          ) {
-            prepareStereogram(code);
-          }
+          if (!stereoState || stereoState.code !== code) prepareStereogram(code, stereogramConfig);
 
           const { width, height, separation, depthShift, depthMap } = stereoState;
           updateTreeDepth(performance.now());
@@ -1433,7 +1471,7 @@
         const resizeObserver = new ResizeObserver(() => {
           clearTimeout(resizeTimer);
           resizeTimer = window.setTimeout(() => {
-            stereoState = null;
+            updateStereogramLayout(stereogramConfig);
             generateStereogram(currentCode);
           }, 120);
         });
