@@ -921,19 +921,20 @@
           choiceGrid.replaceChildren(...buttons);
         }
 
-        function makeDepthMap(width, height, code, separation) {
+        function makeDepthMap(width, height, code) {
           const depthCanvas = document.createElement("canvas");
           depthCanvas.width = width;
           depthCanvas.height = height;
           const depthContext = depthCanvas.getContext("2d");
 
-          const topSafeArea = Math.round(height * 0.13);
-          const availableWidth = width * (code.length === 1 ? 0.46 : 0.66);
-          const sizeByWidth = availableWidth / (code.length * 0.72);
-          // A glyph wider than a stereogram repetition can resolve as a second echo,
-          // especially on narrow portrait screens.
-          const repetitionSafeSize = separation * (code.length === 1 ? 1.45 : 1.18);
-          const fontSize = Math.floor(Math.min(height * 0.54, sizeByWidth, repetitionSafeSize));
+          const topSafeArea = Math.round(height * 0.08);
+          const maximumTextWidth = width * (code.length === 1 ? 0.64 : 0.84);
+          let fontSize = Math.floor(height * 0.82);
+          depthContext.font = `900 ${fontSize}px Arial Black, Arial, sans-serif`;
+          const measuredWidth = depthContext.measureText(code).width;
+          if (measuredWidth > maximumTextWidth) {
+            fontSize = Math.floor(fontSize * (maximumTextWidth / measuredWidth));
+          }
 
           depthContext.fillStyle = "black";
           depthContext.fillRect(0, 0, width, height);
@@ -1145,7 +1146,7 @@
             height,
             separation,
             depthShift,
-            depthMap: makeDepthMap(width, height, code, separation),
+            depthMap: makeDepthMap(width, height, code),
             automata: makeAutomata(width, height),
             treeLayer: makeTreeLayer(width, height),
           };
