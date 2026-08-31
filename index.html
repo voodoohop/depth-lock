@@ -916,7 +916,7 @@
           choiceGrid.replaceChildren(...buttons);
         }
 
-        function makeDepthMap(width, height, code) {
+        function makeDepthMap(width, height, code, separation) {
           const depthCanvas = document.createElement("canvas");
           depthCanvas.width = width;
           depthCanvas.height = height;
@@ -925,7 +925,10 @@
           const topSafeArea = Math.round(height * 0.13);
           const availableWidth = width * (code.length === 1 ? 0.46 : 0.66);
           const sizeByWidth = availableWidth / (code.length * 0.72);
-          const fontSize = Math.floor(Math.min(height * 0.54, sizeByWidth));
+          // A glyph wider than a stereogram repetition can resolve as a second echo,
+          // especially on narrow portrait screens.
+          const repetitionSafeSize = separation * (code.length === 1 ? 1.45 : 1.18);
+          const fontSize = Math.floor(Math.min(height * 0.54, sizeByWidth, repetitionSafeSize));
 
           depthContext.fillStyle = "black";
           depthContext.fillRect(0, 0, width, height);
@@ -1115,7 +1118,7 @@
             height,
             separation,
             depthShift,
-            depthMap: makeDepthMap(width, height, code),
+            depthMap: makeDepthMap(width, height, code, separation),
             automata: makeAutomata(width, height),
             treeLayer: makeTreeLayer(width, height),
           };
